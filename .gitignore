@@ -1,4 +1,6 @@
 .idea
 .state_dicts
 .snapshots
+__pycache__/
 venv/
+wandb/

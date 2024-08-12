@@ -3,8 +3,8 @@
 # Copyright 2024 Shukant Pal
 # Copyright 2024 HuggingFace Inc. team. All rights reserved.
 
-
-from flash_attn.bert_padding import unpad_input
+import deepspeed
+from flash_attn.bert_padding import pad_input, unpad_input
 from flash_attn import flash_attn_varlen_func
 import torch
 import torch.functional as F
@@ -148,7 +148,7 @@ class LlamaAttention(nn.Module):
         key_unpadded_states, indices_k, cu_seqlens_k, max_seqlen_in_batch_k = unpad_input(key_states, attention_mask)
         value_unpadded_states, _, _, _ = unpad_input(value_states, attention_mask)
 
-        output = (flash_attn_varlen_func(
+        output = flash_attn_varlen_func(
             query_unpadded_states,
             key_unpadded_states,
             value_unpadded_states,
@@ -159,7 +159,10 @@ class LlamaAttention(nn.Module):
             dropout_p=self.attention_dropout,
             softmax_scale=None,
             causal=True,
-        ).reshape(bsz, q_len, -1).contiguous())
+        )
+        output = (pad_input(output, indices_q, bsz, q_len)
+                  .reshape(bsz, q_len, -1)
+                  .contiguous())
         output = self.o_proj(output)
 
         return output
@@ -264,3 +267,6 @@ class LlamaForCausalLM(nn.Module):
 
     def forward(self, inputs):
         return self._pipeline[0](inputs)
+
+    def to_layers(self):
+        return self._pipeline[0]

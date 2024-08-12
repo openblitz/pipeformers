@@ -7,10 +7,13 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
+datasets = "^2.20.0"
 deepspeed = "^0.14.4"
 flash-attn = "^2.6.1"
+mpi4py = "^4.0.0"
 torch = "^2.2.1"
 transformers = "^4.40.0"
+wandb = "^0.17.6"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.2"
