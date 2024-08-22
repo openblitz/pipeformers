@@ -20,9 +20,6 @@
         }
     },
     "train_micro_batch_size_per_gpu": 1,
-    "zero_optimization": {
-        "stage": 1
-    },
     "scheduler": {
         "type": "WarmupCosineLR",
         "params": {

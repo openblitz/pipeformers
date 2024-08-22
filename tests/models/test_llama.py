@@ -34,6 +34,13 @@ class TestLlama(unittest.TestCase):
         reference_logits = model(input_ids, attention_mask).logits.to("cpu").to(test_logits.dtype)
         torch.save(reference_logits, ".snapshots/meta-llama--Meta-Llama-3.1-8B-Instruct/reference_logits.pt")
 
+        logits = reference_logits[:, :-1, :].to("cuda")
+        labels = input_ids[:, 1:].to("cuda")
+        loss = torch.nn.functional.cross_entropy(logits.view(-1, test_logits.size(-1)), labels.view(-1), ignore_index=-100)
+
+        print("Loss:", loss, loss.dtype)
+
+        self.assertLess(loss.item(), 10.0)
         self.assertTrue(torch.equal(test_logits, reference_logits))
 
 

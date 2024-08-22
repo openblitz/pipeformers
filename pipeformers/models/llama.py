@@ -54,7 +54,8 @@ class LlamaEmbedding(nn.Module):
         cos = cos * self.attention_scaling
         sin = sin * self.attention_scaling
 
-        position_embeddings = torch.stack((cos, sin), dim=0)
+        # Floating-point tensors must be detached to prevent backpropagation
+        position_embeddings = torch.stack((cos, sin), dim=0).detach().clone().requires_grad_(True)
 
         return self.embed_tokens(input_ids), attention_mask, position_embeddings
 
@@ -195,6 +196,7 @@ class LlamaDecoderLayer(nn.Module):
     def __init__(
         self,
         config: LlamaConfig,
+        i: int,
     ):
         super().__init__()
 
@@ -202,6 +204,8 @@ class LlamaDecoderLayer(nn.Module):
         self.self_attn = LlamaAttention(config=config)
         self.post_attention_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.mlp = LlamaMLP(config)
+
+        self.i = i
 
     def forward(
         self,
@@ -234,7 +238,7 @@ class LlamaModel(nn.Module):
             config.hidden_size,
         )
         self.layers = nn.ModuleList([
-            LlamaDecoderLayer(config) for _ in range(config.num_hidden_layers)
+            LlamaDecoderLayer(config, _) for _ in range(config.num_hidden_layers)
         ])
         self.norm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 

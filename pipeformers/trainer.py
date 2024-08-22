@@ -34,11 +34,17 @@ class PipeDataset(torch.utils.data.Dataset):
         else:
             self.pretrain_column = "text"
 
+        self.dataset = self.dataset.filter(
+            lambda x: x[self.pretrain_column] != "",
+        )
+
     def __len__(self):
         return len(self.dataset)
 
     def __getitem__(self, idx: int):
         row = self.dataset[idx]
+
+        row = {"text": "Hello, world!"}
 
         if self.mode == "pretrain":
             text = row[self.pretrain_column]
@@ -46,12 +52,13 @@ class PipeDataset(torch.utils.data.Dataset):
                 text,
                 return_tensors="pt",
                 truncation=False,
+                add_special_tokens=True,
             )
             input_ids = inputs["input_ids"].squeeze(dim=0)
             attention_mask = inputs["attention_mask"].squeeze(dim=0)
             labels = input_ids.clone()
 
-            if input_ids.numel() == 0:
+            if input_ids.numel() <= 2:
                 raise ValueError(f"Empty input: `{text}` @ {idx}")
 
             if len(input_ids) < self.sequence_length:
@@ -81,7 +88,6 @@ class PipeDataset(torch.utils.data.Dataset):
                 labels = labels[:self.sequence_length]
         else:
             raise ValueError(f"Invalid dataset mode: {self.mode}")
-
 
         return (
             tuple([
@@ -148,7 +154,7 @@ def main(
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
     if state_dict:
-        model.load_state_dict(torch.load(state_dict))
+        model.load_state_dict(torch.load(state_dict, weights_only=True), strict=True)
     else:
         print("No state dict provided. Using random initialization.")
 
@@ -197,14 +203,15 @@ def main(
     engine.train()
     for epoch in range(epochs):
         for _ in range(len(training_data) // engine.train_batch_size()):
-            print("RUNNING BATCH")
             loss = engine.train_batch()
-            wandb.log(
-                {
-                    "epoch": epoch,
-                },
-                step=engine.global_samples,
-            )
+            
+            if wandb_logging:
+                wandb.log(
+                    {
+                        "epoch": epoch,
+                    },
+                    step=engine.global_samples,
+                )
 
             if engine.global_steps % validation_stride == 0:
                 valid_dataloader = deepspeed.utils.RepeatingLoader(
